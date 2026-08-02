@@ -538,6 +538,28 @@ def print_summary(workouts: List[dict], custom_workouts: dict, workout_catalog: 
 # MAIN
 # ============================================================================
 
+def _load_dotenv():
+    """Load credentials from gitignored .env file if present."""
+    search_paths = [
+        ".env",
+        os.path.join(os.path.dirname(__file__), ".env"),
+        os.path.join(os.path.dirname(__file__), "..", ".env"),
+    ]
+    for p in search_paths:
+        if os.path.isfile(p):
+            try:
+                with open(p, "r", encoding="utf-8") as f:
+                    for line in f:
+                        line = line.strip()
+                        if line and not line.startswith("#") and "=" in line:
+                            k, v = line.split("=", 1)
+                            k, v = k.strip(), v.strip().strip("'\"")
+                            if k and k not in os.environ:
+                                os.environ[k] = v
+            except Exception:
+                pass
+
+
 def main():
     # Parse command line args
     use_full = '--full' in sys.argv
@@ -555,17 +577,27 @@ def main():
     
     print("\n⚠️  Disclaimer: Unofficial tool, not affiliated with Tonal.")
     
-    # Get credentials
-    print("\n" + "-" * 50)
-    email = input("Tonal email: ").strip()
-    if not email:
-        print("❌ Email is required")
-        sys.exit(1)
+    # Load credentials from gitignored .env file if present
+    _load_dotenv()
+
+    # Get credentials (env vars / .env file first, then interactive fallback)
+    email = os.environ.get("TONAL_EMAIL", "").strip()
+    password = os.environ.get("TONAL_PASSWORD", "")
     
-    password = getpass("Tonal password: ")
-    if not password:
-        print("❌ Password is required")
-        sys.exit(1)
+    if email and password:
+        print("\n   Using credentials from environment variables / .env file")
+    else:
+        print("\n" + "-" * 50)
+        if not email:
+            email = input("Tonal email: ").strip()
+        if not email:
+            print("❌ Email is required")
+            sys.exit(1)
+        if not password:
+            password = getpass("Tonal password: ")
+        if not password:
+            print("❌ Password is required")
+            sys.exit(1)
     
     try:
         # Authenticate
